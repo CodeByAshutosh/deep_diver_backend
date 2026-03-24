@@ -1,0 +1,81 @@
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Dependency Update: Switch to google.golang.org/protobuf and etcd Vendor Changes</title>
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js/dist/reveal.css">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js/dist/theme/black.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <!-- Slide 1: Title + Overview -->
+    <section>
+      <h1>Dependency Update: Switch to google.golang.org/protobuf and etcd Vendor Changes</h1>
+      <p>This PR updates multiple Go module dependencies, notably switching etcd-related dependencies to a custom fork and updating to use google.golang.org/protobuf. It also bumps several other dependencies and updates license files accordingly.</p>
+    </section>
+
+    <!-- Slide 2: Key Changes -->
+    <section>
+      <h2>Key Changes</h2>
+      <ul>
+        <li>Replaced go.etcd.io/etcd dependencies with github.com/fuweid/etcd fork in code-generator examples.</li><li>Updated etcd dependencies to v3.6.0-alpha.0 and server to a new commit.</li><li>Bumped google.golang.org/protobuf and related gRPC/genproto dependencies.</li><li>Updated various other dependencies (cobra, pflag, golang.org/x/*, cel.dev/expr, etc.).</li><li>Modified LICENSE files for etcd vendored code to reflect correct copyright.</li>
+      </ul>
+    </section>
+
+    <!-- Slide 3: File Changes -->
+    <section>
+      <h2>File Changes</h2>
+      <ul>
+        
+          <li>
+            <strong>go.mod</strong> — modified<br/>
+            Updated dependency versions for etcd, protobuf, gRPC, and other libraries.
+          </li>
+          <li>
+            <strong>staging/src/k8s.io/code-generator/examples/go.mod</strong> — modified<br/>
+            Replaced etcd dependencies with github.com/fuweid/etcd fork and updated other dependencies.
+          </li>
+          <li>
+            <strong>LICENSES/vendor/go.etcd.io/etcd/api/v3/LICENSE</strong> — modified<br/>
+            Updated copyright and license hash for etcd API.
+          </li>
+          <li>
+            <strong>staging/src/k8s.io/apiserver/go.mod</strong> — modified<br/>
+            Bumped etcd, protobuf, gRPC, and other dependencies.
+          </li>
+          <li>
+            <strong>staging/src/k8s.io/component-base/go.mod</strong> — modified<br/>
+            Updated dependency versions for cobra, pflag, opentelemetry, grpc-gateway, and others.
+          </li>
+      </ul>
+    </section>
+
+    <!-- Slide 4: Risks -->
+    <section>
+      <h2>Risks & Impact</h2>
+      <ul>
+        <li>Potential incompatibility with the custom etcd fork (github.com/fuweid/etcd).</li><li>Upgrading protobuf and gRPC may introduce subtle API or wire format changes.</li><li>Dependency bumps could cause downstream build or runtime issues.</li><li>License changes must be validated for compliance.</li>
+      </ul>
+    </section>
+
+    <!-- Slide 5: Testing -->
+    <section>
+      <h2>Testing Notes</h2>
+      <ul>
+        <li>Run full unit and integration test suites to ensure compatibility.</li><li>Verify etcd client and server interactions work as expected.</li><li>Check for regressions in protobuf serialization/deserialization.</li><li>Validate that all modules build and pass CI with new dependencies.</li><li>Review license compliance with updated vendor files.</li>
+      </ul>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://unpkg.com/reveal.js/dist/reveal.js"></script>
+<script>
+  // @ts-ignore
+  Reveal.initialize();
+</script>
+</body>
+</html>
