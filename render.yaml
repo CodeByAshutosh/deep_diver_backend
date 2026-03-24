@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: pr-slides-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
