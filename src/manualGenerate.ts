@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { fetchPullRequestDetails } from "./githubClient";
-import { summarizePRForSlides } from "./summarizer";
-import { generateSlides } from "./slideGenerator";
+import { fetchPullRequestDetails } from "./githubClient.js";
+import { summarizePRForSlides } from "./summarizer.js";
+import { generateSlides } from "./slideGenerator/index.js";
 
 export async function manualGenerate(req: Request, res: Response) {
   try {

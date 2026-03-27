@@ -1,6 +1,6 @@
-import { getPullRequestWithDiff, commentOnPullRequest } from "./githubClient";
-import { summarizePRForSlides } from "./llmClient";
-import { generateHtmlSlides } from "./slideGenerator/htmlSlides";
+import { getPullRequestWithDiff, commentOnPullRequest } from "./githubClient.js";
+import { summarizePRForSlides } from "./llmClient.js";
+import { generateHtmlSlides } from "./slideGenerator/htmlSlides.js";
 
 export async function processPullRequestEvent(payload: any) {
   const pr = payload.pull_request;

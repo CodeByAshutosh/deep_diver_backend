@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import crypto from "crypto";
-import { config } from "./config";
-import { processPullRequestEvent } from "./prAnalyzer";
+import { config } from "./config.js";
+import { processPullRequestEvent } from "./prAnalyzer.js";
 
 function verifySignature(req: Request): boolean {
   const signature = req.headers["x-hub-signature-256"] as string | undefined;

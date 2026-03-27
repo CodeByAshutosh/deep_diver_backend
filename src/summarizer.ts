@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
-import { config } from "./config";
-import { PRSlideSummary } from "./types";
+import { config } from "./config.js";
+import { PRSlideSummary } from "./types.js";
 
 export async function summarizePRForSlides(input: {
   title: string;

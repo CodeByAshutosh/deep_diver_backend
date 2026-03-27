@@ -1,5 +1,5 @@
-import { PRSlideSummary } from "../types";
-import { generateHtmlSlides } from "./htmlSlides";
+import { PRSlideSummary } from "../types.js";
+import { generateHtmlSlides } from "./htmlSlides.js";
 
 export async function generateSlides(
   summary: PRSlideSummary,

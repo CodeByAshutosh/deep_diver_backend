@@ -1,10 +1,10 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
-import { config } from "./config";
-import { handleGitHubWebhook } from "./githubWebhook";
-import { manualGenerate } from "./manualGenerate";
-import { listPullRequests } from "./githubClient";
+import { config } from "./config.js";
+import { handleGitHubWebhook } from "./githubWebhook.js";
+import { manualGenerate } from "./manualGenerate.js";
+import { listPullRequests } from "./githubClient.js";
 
 const app = express();
 
@@ -61,6 +61,29 @@ app.get("/", (_req, res) => {
   res.send("PR Slides server is running");
 });
 
-app.listen(3000, "0.0.0.0", () => {
-  console.log("Server listening on port 3000");
+const PORT = 3000;
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server listening on port ${PORT}`);
+  console.log("Environment:", { nodeEnv: process.env.NODE_ENV });
+});
+
+// Handle server errors
+server.on("error", (err) => {
+  console.error("Server error:", err);
+  process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  process.exit(1);
+});
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully...");
+  server.close(() => {
+    console.log("Server closed");
+    process.exit(0);
+  });
 });

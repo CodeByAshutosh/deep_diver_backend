@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
-import { PRSlideSummary } from "./types";
-import { config } from "./config";
+import { PRSlideSummary } from "./types.js";
+import { config } from "./config.js";
 import { json } from "body-parser";
 
 export async function summarizePRForSlides(input: {

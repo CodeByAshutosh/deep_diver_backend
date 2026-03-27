@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { PRSlideSummary } from "../types";
-import { config } from "../config";
+import { PRSlideSummary } from "../types.js";
+import { config } from "../config.js";
 
 export function generateHtmlSlides(
   summary: PRSlideSummary,
