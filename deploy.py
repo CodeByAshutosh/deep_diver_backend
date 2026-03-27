@@ -45,6 +45,12 @@ try:
         container_app.template.containers[0].env = env_vars
     
     print(f"Updating container app with image: {image}")
+    # Ensure ingress is external
+    if not container_app.configuration.ingress.external:
+        print("⚠️ Ingress is internal, making it external...")
+        container_app.configuration.ingress.external = True
+    
+    print(f"Updating container app with image: {image}")
     # Update the container app
     async_operation = client.container_apps.begin_create_or_update(
         resource_group, 
@@ -56,6 +62,9 @@ try:
     print(f"✅ Deployment successful!")
     print(f"Container App: {result.name}")
     print(f"Provisioning State: {result.provisioning_state}")
+    print(f"Ingress External: {result.configuration.ingress.external}")
+    print(f"Target Port: {result.configuration.ingress.target_port}")
+    print(f"Public FQDN: https://{result.configuration.ingress.fqdn}")
     
 except Exception as e:
     print(f"❌ Error: {e}", file=sys.stderr)
