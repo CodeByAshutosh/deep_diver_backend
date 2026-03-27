@@ -2,9 +2,13 @@
 import sys
 import os
 import json
+from dotenv import load_dotenv
 from azure.identity import InteractiveBrowserCredential
 from azure.mgmt.appcontainers import ContainerAppsAPIClient
 from azure.mgmt.appcontainers.models import Container, Template
+
+# Load environment variables from .env file
+load_dotenv()
 
 subscription_id = "4e78cd80-41c7-4f58-b92b-334cde20f39b"
 tenant_id = "2b08247b-be82-4b00-ad96-ca1606b8b51a"
