@@ -79,25 +79,58 @@ ${filesForPrompt}
 Remember: Return ONLY the JSON object, nothing else.
 `;
 
-  // Helper to call LLM (supports both OpenAI and OpenRouter)
+  // Helper to call LLM (supports Alibaba Qwen, OpenAI, and OpenRouter)
   async function callLLM(promptContent: string) {
-    // Prefer LLM_API_KEY (OpenAI), fall back to OpenRouter
-    const apiKey = config.llmApiKey || config.openRouterKey;
-    const isOpenAI = apiKey?.startsWith("sk-proj") || (apiKey?.startsWith("sk-") && !apiKey?.includes("or-v1"));
+    // Smart provider selection: Qwen → OpenAI → OpenRouter
+    let apiKey = config.alibabaCloudKey || config.llmApiKey || config.openRouterKey;
     
-    const url = isOpenAI 
-      ? "https://api.openai.com/v1/chat/completions"
-      : "https://openrouter.ai/api/v1/chat/completions";
+    let url: string;
+    let body: any;
+    let isAlibaba = false;
+    let isOpenAI = false;
     
-    const body = {
-      model: isOpenAI ? "gpt-3.5-turbo" : "openai/gpt-4.1",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: promptContent },
-      ],
-      temperature: 0.2,
-      ...(isOpenAI ? { max_tokens: 1200 } : { max_output_tokens: 1200 }),
-    };
+    if (config.alibabaCloudKey) {
+      // Use Alibaba Cloud Qwen
+      isAlibaba = true;
+      url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
+      body = {
+        model: "qwen-plus", // Best balance for code analysis
+        input: {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: promptContent },
+          ],
+        },
+        parameters: {
+          temperature: 0.2,
+        },
+      };
+    } else if (config.llmApiKey?.startsWith("sk-proj") || (config.llmApiKey?.startsWith("sk-") && !config.llmApiKey?.includes("or-v1"))) {
+      // Use OpenAI
+      isOpenAI = true;
+      url = "https://api.openai.com/v1/chat/completions";
+      body = {
+        model: "gpt-3.5-turbo",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: promptContent },
+        ],
+        temperature: 0.2,
+        max_tokens: 1200,
+      };
+    } else {
+      // Use OpenRouter
+      url = "https://openrouter.ai/api/v1/chat/completions";
+      body = {
+        model: "openai/gpt-4.1",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: promptContent },
+        ],
+        temperature: 0.2,
+        max_output_tokens: 1200,
+      };
+    }
     
     const resp = await fetch(url, {
       method: "POST",
@@ -109,19 +142,35 @@ Remember: Return ONLY the JSON object, nothing else.
     });
 
     const json: any = await resp.json();
-    if (json.error) {
-      console.error("LLM Error Response:", json);
-      throw new Error("LLM did not return a valid response");
-    }
-    if (!json.choices || !json.choices[0]) {
-      console.error("LLM returned no choices:", json);
-      throw new Error("LLM returned an empty response");
-    }
-
-    const content = json.choices[0].message?.content;
-    if (!content) {
-      console.error("LLM returned no content:", json);
-      throw new Error("LLM returned no content");
+    
+    // Parse response based on provider
+    let content: string;
+    if (isAlibaba) {
+      // Alibaba format
+      if (json.code !== "200" && json.code) {
+        console.error("Alibaba Cloud Error:", json);
+        throw new Error("Alibaba Cloud returned error: " + json.message);
+      }
+      if (!json.output?.text) {
+        console.error("Alibaba Cloud returned no content:", json);
+        throw new Error("Alibaba Cloud returned no content");
+      }
+      content = json.output.text;
+    } else {
+      // OpenAI/OpenRouter format
+      if (json.error) {
+        console.error("LLM Error Response:", json);
+        throw new Error("LLM did not return a valid response");
+      }
+      if (!json.choices || !json.choices[0]) {
+        console.error("LLM returned no choices:", json);
+        throw new Error("LLM returned an empty response");
+      }
+      content = json.choices[0].message?.content;
+      if (!content) {
+        console.error("LLM returned no content:", json);
+        throw new Error("LLM returned no content");
+      }
     }
 
     return content as string;
@@ -146,25 +195,60 @@ Remember: Return ONLY the JSON object, nothing else.
 
     // 5) JSON REPAIR PASS
     try {
-      const apiKey = config.llmApiKey || config.openRouterKey;
-      const isOpenAI = apiKey?.startsWith("sk-proj") || (apiKey?.startsWith("sk-") && !apiKey?.includes("or-v1"));
+      let apiKey = config.alibabaCloudKey || config.llmApiKey || config.openRouterKey;
+      let url: string;
+      let repairBody: any;
+      let isAlibaba = false;
+      let isOpenAI = false;
       
-      const url = isOpenAI 
-        ? "https://api.openai.com/v1/chat/completions"
-        : "https://openrouter.ai/api/v1/chat/completions";
-      
-      const repairBody = {
-        model: isOpenAI ? "gpt-3.5-turbo" : "anthropic/claude-3-sonnet",
-        messages: [
-          {
-            role: "system",
-            content: "You are a strict JSON repair assistant. Fix the following broken JSON. Return ONLY valid JSON, no explanation, no markdown.",
+      if (config.alibabaCloudKey) {
+        isAlibaba = true;
+        url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
+        repairBody = {
+          model: "qwen-plus",
+          input: {
+            messages: [
+              {
+                role: "system",
+                content: "You are a strict JSON repair assistant. Fix the following broken JSON. Return ONLY valid JSON, no explanation, no markdown.",
+              },
+              { role: "user", content },
+            ],
           },
-          { role: "user", content },
-        ],
-        temperature: 0,
-        ...(isOpenAI ? { max_tokens: 1200 } : { max_output_tokens: 1200 }),
-      };
+          parameters: {
+            temperature: 0,
+          },
+        };
+      } else if (config.llmApiKey?.startsWith("sk-proj") || (config.llmApiKey?.startsWith("sk-") && !config.llmApiKey?.includes("or-v1"))) {
+        isOpenAI = true;
+        url = "https://api.openai.com/v1/chat/completions";
+        repairBody = {
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "You are a strict JSON repair assistant. Fix the following broken JSON. Return ONLY valid JSON, no explanation, no markdown.",
+            },
+            { role: "user", content },
+          ],
+          temperature: 0,
+          max_tokens: 1200,
+        };
+      } else {
+        url = "https://openrouter.ai/api/v1/chat/completions";
+        repairBody = {
+          model: "anthropic/claude-3-sonnet",
+          messages: [
+            {
+              role: "system",
+              content: "You are a strict JSON repair assistant. Fix the following broken JSON. Return ONLY valid JSON, no explanation, no markdown.",
+            },
+            { role: "user", content },
+          ],
+          temperature: 0,
+          max_output_tokens: 1200,
+        };
+      }
       
       const repairResp = await fetch(url, {
         method: "POST",
@@ -176,7 +260,13 @@ Remember: Return ONLY the JSON object, nothing else.
       });
 
       const repairJson: any = await repairResp.json();
-      const repaired = repairJson.choices?.[0]?.message?.content;
+      let repaired: string;
+      
+      if (isAlibaba) {
+        repaired = repairJson.output?.text;
+      } else {
+        repaired = repairJson.choices?.[0]?.message?.content;
+      }
 
       if (!repaired) {
         console.error("JSON repair returned no content:", repairJson);
