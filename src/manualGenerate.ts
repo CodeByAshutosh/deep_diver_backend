@@ -53,6 +53,20 @@ if (!pr) {
 
   } catch (err) {
     console.error("manualGenerate error:", err);
-    return res.status(500).json({ error: "Failed to generate slides" });
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    
+    // Check for common issues
+    if (errorMsg.includes("401") || errorMsg.includes("Unauthorized")) {
+      return res.status(500).json({ 
+        error: "Authentication failed. Missing or invalid GITHUB_TOKEN." 
+      });
+    }
+    if (errorMsg.includes("OPENROUTER_API_KEY") || errorMsg.includes("LLM_API_KEY")) {
+      return res.status(500).json({ 
+        error: "Missing LLM API key. Configure OPENROUTER_API_KEY or LLM_API_KEY." 
+      });
+    }
+    
+    return res.status(500).json({ error: "Failed to generate slides", details: errorMsg });
   }
 }
