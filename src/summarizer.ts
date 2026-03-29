@@ -94,7 +94,7 @@ Remember: Return ONLY the JSON object, nothing else.
           { role: "user", content: promptContent },
         ],
         temperature: 0.2,
-        max_tokens: 800, // keep response compact and complete
+        max_output_tokens: 1200
       }),
     });
 
@@ -155,7 +155,7 @@ Remember: Return ONLY the JSON object, nothing else.
               { role: "user", content },
             ],
             temperature: 0,
-            max_tokens: 800,
+            max_output_tokens: 1200,
           }),
         }
       );
