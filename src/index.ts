@@ -46,9 +46,67 @@ app.get("/prs", async (req, res) => {
   }
 });
 
-// -----------------------------
-// Existing routes
-// -----------------------------
+// NEW: Generate slides for a specific PR (GET endpoint)
+app.get("/generate", async (req, res) => {
+  try {
+    const { owner, repo, prNumber } = req.query;
+    
+    if (!owner || !repo || !prNumber) {
+      return res.status(400).json({ error: "owner, repo, and prNumber are required" });
+    }
+
+    // Call manualGenerate logic directly
+    const { fetchPullRequestDetails } = await import("./githubClient.js");
+    const { summarizePRForSlides } = await import("./summarizer.js");
+    const { mockSummarizePRForSlides } = await import("./mockSummarizer.js");
+    const { generateSlides } = await import("./slideGenerator/index.js");
+
+    // 1. Fetch PR details
+    const pr = await fetchPullRequestDetails(owner as string, repo as string, Number(prNumber));
+
+    if (!pr) {
+      return res.status(404).json({
+        error: `Pull Request #${prNumber} not found in ${owner}/${repo}`
+      });
+    }
+
+    // 2. Summarize PR
+    let summary;
+    try {
+      summary = await summarizePRForSlides({
+        title: pr.title,
+        description: pr.body,
+        files: pr.files,
+      });
+    } catch (llmErr) {
+      console.warn("LLM summarization failed, using mock summarizer:", llmErr);
+      summary = await mockSummarizePRForSlides({
+        title: pr.title,
+        description: pr.body,
+        files: pr.files,
+      });
+    }
+
+    // 3. Generate slides
+    const publicUrl = await generateSlides(
+      summary,
+      owner as string,
+      repo as string,
+      Number(prNumber)
+    );
+
+    return res.json({
+      message: "Slides generated",
+      url: publicUrl,
+    });
+  } catch (err) {
+    console.error("GET /generate error:", err);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: "Failed to generate slides", details: errorMsg });
+  }
+});
+
+// Existing routes (POST)
 app.post("/generate", manualGenerate);
 app.post("/webhook", handleGitHubWebhook);
 
