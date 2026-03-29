@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { fetchPullRequestDetails } from "./githubClient.js";
 import { summarizePRForSlides } from "./summarizer.js";
+import { mockSummarizePRForSlides } from "./mockSummarizer.js";
 import { generateSlides } from "./slideGenerator/index.js";
 
 export async function manualGenerate(req: Request, res: Response) {
@@ -31,11 +32,22 @@ if (!pr) {
 
 
     // 2. Summarize PR into 5-slide structure
-    const summary = await summarizePRForSlides({
-      title: pr.title,
-      description: pr.body,
-      files: pr.files,
-    });
+    let summary;
+    try {
+      summary = await summarizePRForSlides({
+        title: pr.title,
+        description: pr.body,
+        files: pr.files,
+      });
+    } catch (llmErr) {
+      console.warn("LLM summarization failed, using mock summarizer:", llmErr);
+      // Fall back to mock summarizer if LLM is unavailable
+      summary = await mockSummarizePRForSlides({
+        title: pr.title,
+        description: pr.body,
+        files: pr.files,
+      });
+    }
 
     // 3. Generate HTML slides (returns public URL)
     const publicUrl = await generateSlides(

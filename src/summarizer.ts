@@ -79,23 +79,33 @@ ${filesForPrompt}
 Remember: Return ONLY the JSON object, nothing else.
 `;
 
-  // Helper to call OpenRouter
+  // Helper to call LLM (supports both OpenAI and OpenRouter)
   async function callLLM(promptContent: string) {
-    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    // Prefer LLM_API_KEY (OpenAI), fall back to OpenRouter
+    const apiKey = config.llmApiKey || config.openRouterKey;
+    const isOpenAI = apiKey?.startsWith("sk-proj") || (apiKey?.startsWith("sk-") && !apiKey?.includes("or-v1"));
+    
+    const url = isOpenAI 
+      ? "https://api.openai.com/v1/chat/completions"
+      : "https://openrouter.ai/api/v1/chat/completions";
+    
+    const body = {
+      model: isOpenAI ? "gpt-3.5-turbo" : "openai/gpt-4.1",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: promptContent },
+      ],
+      temperature: 0.2,
+      ...(isOpenAI ? { max_tokens: 1200 } : { max_output_tokens: 1200 }),
+    };
+    
+    const resp = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${config.openRouterKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "openai/gpt-4.1", // stronger model for structure
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: promptContent },
-        ],
-        temperature: 0.2,
-        max_output_tokens: 1200
-      }),
+      body: JSON.stringify(body),
     });
 
     const json: any = await resp.json();
@@ -136,29 +146,34 @@ Remember: Return ONLY the JSON object, nothing else.
 
     // 5) JSON REPAIR PASS
     try {
-      const repairResp = await fetch(
-        "https://openrouter.ai/api/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${config.openRouterKey}`,
-            "Content-Type": "application/json",
+      const apiKey = config.llmApiKey || config.openRouterKey;
+      const isOpenAI = apiKey?.startsWith("sk-proj") || (apiKey?.startsWith("sk-") && !apiKey?.includes("or-v1"));
+      
+      const url = isOpenAI 
+        ? "https://api.openai.com/v1/chat/completions"
+        : "https://openrouter.ai/api/v1/chat/completions";
+      
+      const repairBody = {
+        model: isOpenAI ? "gpt-3.5-turbo" : "anthropic/claude-3-sonnet",
+        messages: [
+          {
+            role: "system",
+            content: "You are a strict JSON repair assistant. Fix the following broken JSON. Return ONLY valid JSON, no explanation, no markdown.",
           },
-          body: JSON.stringify({
-            model: "anthropic/claude-3-sonnet",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a strict JSON repair assistant. Fix the following broken JSON. Return ONLY valid JSON, no explanation, no markdown.",
-              },
-              { role: "user", content },
-            ],
-            temperature: 0,
-            max_output_tokens: 1200,
-          }),
-        }
-      );
+          { role: "user", content },
+        ],
+        temperature: 0,
+        ...(isOpenAI ? { max_tokens: 1200 } : { max_output_tokens: 1200 }),
+      };
+      
+      const repairResp = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(repairBody),
+      });
 
       const repairJson: any = await repairResp.json();
       const repaired = repairJson.choices?.[0]?.message?.content;
