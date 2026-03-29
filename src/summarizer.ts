@@ -13,41 +13,86 @@ export async function summarizePRForSlides(input: {
 }): Promise<PRSlideSummary> {
   // 1) STRONG, STRICT SYSTEM PROMPT
   const systemPrompt = `
-You are a senior engineer creating a 10-slide technical presentation for an SDE2-level audience.
+You are a senior engineer creating a COMPREHENSIVE technical presentation for learning.
 
 Your goal:
-- Help a ramping-up engineer quickly understand the PR
-- Explain not just "what changed" but "why it matters"
-- Use mental models: data flow, components, dependencies, risks
+- Help someone (even a junior) understand the PR completely
+- Explain not just "what changed" but "why" and "what it means"
+- Create slides for: motivation, changes, files, diffs, dependencies, performance, security, learning points
+- Include code diffs so people can see actual changes
+- Help them understand the business and technical impact
 
 You MUST return ONLY a single JSON object matching EXACTLY this TypeScript type:
+
+interface CodeDiff {
+  filePath: string;
+  before?: string;
+  after?: string;
+  summary: string;
+}
 
 interface PRSlideSummary {
   title: string;
   overview: string;
+  motivation?: string;
+  whyChanges?: string[];
   keyChanges: string[];
   fileChanges: {
     filePath: string;
     changeType: "added" | "modified" | "deleted";
     summary: string;
   }[];
+  keyDiffs?: CodeDiff[];
+  dependencies?: {
+    added: string[];
+    removed: string[];
+    updated: string[];
+  };
+  performanceImpact?: {
+    improvements: string[];
+    degradations: string[];
+  };
+  securityConsiderations?: string[];
+  breakingChanges?: string[];
   risks: string[];
   testing: string[];
+  reviewComments?: {
+    author: string;
+    comment: string;
+    resolved: boolean;
+  }[];
+  learningPoints?: string[];
+  rollbackPlan?: string;
+  filesImpactMap?: { [directory: string]: number };
 }
 
 Guidance:
-- In keyChanges, think in terms of system behavior, not just files.
-- In fileChanges.summary, mention roles: controller, worker, API, DB, cache, etc.
-- In risks/testing, think like an oncall: blast radius, failure modes, rollback.
+- motivation: Why was this PR created? What problem does it solve?
+- whyChanges: 3-5 reasons explaining the key architectural/logic changes
+- keyChanges: Main behavioral changes (not just "added file X")
+- keyDiffs: 3-5 most important code changes with actual before/after snippets (max 20 lines each)
+- dependencies: New packages, removed packages, version updates
+- performanceImpact: Speed, memory, scalability changes
+- securityConsiderations: Any security implications
+- breakingChanges: What might break for users?
+- learningPoints: 3-5 things a junior dev can learn from this code
+- rollbackPlan: How to revert this PR if needed
+- filesImpactMap: Group changed files by directory (e.g., {"src/components": 5, "tests": 3})
+
+Code Diffs:
+- Include actual before/after snippets for top 3-5 changes
+- Show simplified versions (20 lines max per section)
+- Make it clear what changed and why
 
 Rules:
 - Do NOT wrap the result in any other fields.
-- Do NOT include markdown.
+- Do NOT include markdown in strings (just plain text).
 - Do NOT include explanations.
-- Do NOT include comments.
 - Do NOT include trailing commas.
 - Return ONLY the JSON object.
+- For before/after in diffs, use actual code snippets or "N/A" if not applicable
 `;
+
 
   // 2) INPUT TUNED FOR LARGE PRs (truncate patches)
   const MAX_PATCH_CHARS = 2000;

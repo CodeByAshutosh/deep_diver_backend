@@ -6,6 +6,13 @@ export interface FileChangeSummary {
   risksOrConcerns?: string[];
 }
 
+export interface CodeDiff {
+  filePath: string;
+  before?: string;
+  after?: string;
+  summary: string;
+}
+
 export interface PRSlideSummary {
   title: string;
   overview: string;
@@ -17,5 +24,33 @@ export interface PRSlideSummary {
   }[];
   risks: string[];
   testing: string[];
+  
+  // New comprehensive content
+  motivation?: string; // Why this PR was created
+  whyChanges?: string[]; // Reasons for key changes
+  keyDiffs?: CodeDiff[]; // Top 3-5 code diffs
+  dependencies?: {
+    added: string[];
+    removed: string[];
+    updated: string[];
+  };
+  performanceImpact?: {
+    improvements: string[];
+    degradations: string[];
+  };
+  securityConsiderations?: string[];
+  breakingChanges?: string[];
+  reviewComments?: {
+    author: string;
+    comment: string;
+    resolved: boolean;
+  }[];
+  learningPoints?: string[]; // What juniors can learn
+  checklist?: {
+    description: string;
+    completed: boolean;
+  }[];
+  rollbackPlan?: string;
+  filesImpactMap?: { [directory: string]: number }; // File count by directory
 }
 

@@ -14,13 +14,14 @@ subscription_id = "4e78cd80-41c7-4f58-b92b-334cde20f39b"
 tenant_id = "2b08247b-be82-4b00-ad96-ca1606b8b51a"
 resource_group = "deep-diver-rg"
 container_app_name = "deep-diver-backend"
-image = "shuklaashu1/deep-diver-backend:v5"
+image = "shuklaashu1/deep-diver-backend:v6"
 
 # Environment variables from .env file
 env_vars = [
     {"name": "PORT", "value": os.getenv("PORT", "3000")},
     {"name": "GITHUB_TOKEN", "value": os.getenv("GITHUB_TOKEN")},
     {"name": "GITHUB_WEBHOOK_SECRET", "value": os.getenv("GITHUB_WEBHOOK_SECRET")},
+    {"name": "ALIBABA_CLOUD_API_KEY", "value": os.getenv("ALIBABA_CLOUD_API_KEY")},
     {"name": "OPENROUTER_API_KEY", "value": os.getenv("OPENROUTER_API_KEY")},
     {"name": "LLM_API_KEY", "value": os.getenv("LLM_API_KEY")},
     {"name": "PUBLIC_BASE_URL", "value": os.getenv("PUBLIC_BASE_URL")},

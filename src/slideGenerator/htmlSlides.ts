@@ -29,8 +29,15 @@ function escapeHtml(str: string | undefined | null) {
 
 function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string; prNumber: number }): string {
   const fileCount = summary.fileChanges?.length || 0;
-  const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#a78bfa"];
   
+  // Generate slide navigation dots
+  const totalSlides = generateSlideCount(summary);
+  const dots = Array.from({ length: totalSlides }, (_, i) => 
+    `<div class="dot" onclick="document.getElementById('s${i+1}').scrollIntoView()"></div>`
+  ).join("");
+
+  const allSlides = generateSlides(summary, opts);
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -38,6 +45,8 @@ function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string;
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PR #${opts.prNumber} — ${escapeHtml(summary.title)}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
     :root {
@@ -54,11 +63,11 @@ function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string;
     *{margin:0;padding:0;box-sizing:border-box}
     html{scroll-behavior:smooth}
     body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;overflow-x:hidden}
-    nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,14,23,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;height:56px}
+    nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,14,23,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
     nav .logo{font-weight:800;font-size:0.85rem;letter-spacing:0.5px;color:var(--accent)}
     nav .sep{margin:0 0.75rem;color:var(--text-muted)}
     nav .pr{font-weight:500;font-size:0.85rem;color:var(--text-dim)}
-    nav .dots{margin-left:auto;display:flex;gap:6px}
+    nav .dots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;flex:1;max-width:500px}
     nav .dot{width:8px;height:8px;border-radius:50%;background:var(--text-muted);cursor:pointer;transition:all 0.3s}
     nav .dot:hover,nav .dot.active{background:var(--accent);transform:scale(1.3)}
     .deck{scroll-snap-type:y mandatory;overflow-y:scroll;height:100vh}
@@ -70,6 +79,9 @@ function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string;
     h3{font-size:1.1rem;font-weight:600;margin-bottom:0.5rem}
     p{color:var(--text-dim);font-size:1.05rem;margin-bottom:1rem}
     p.lead{font-size:1.25rem;color:var(--text);font-weight:300}
+    ul{list-style:none;padding-left:0}
+    li{margin:0.75rem 0;padding-left:1.5rem;position:relative}
+    li:before{content:"▸";position:absolute;left:0;color:var(--accent)}
     .cg{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem;margin-top:1.5rem}
     .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;transition:all 0.3s}
     .card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}
@@ -78,15 +90,19 @@ function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string;
     .card p{font-size:0.9rem;color:var(--text-muted)}
     .c-green{border-left:3px solid var(--green)}.c-red{border-left:3px solid var(--red)}.c-amber{border-left:3px solid var(--amber)}.c-blue{border-left:3px solid var(--accent)}.c-purple{border-left:3px solid var(--purple)}.c-teal{border-left:3px solid var(--teal)}.c-orange{border-left:3px solid var(--orange)}
     pre{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:1.25rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:0.82rem;line-height:1.65;margin:1rem 0;position:relative}
-    code{font-family:'JetBrains Mono',monospace}
+    code{font-family:'JetBrains Mono',monospace;background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.9em}
+    pre code{background:none;padding:0}
     .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;letter-spacing:0.5px}
     .badge.med{background:var(--accent-glow);color:var(--accent);border:1px solid rgba(59,130,246,0.3)}
+    .badge.success{background:var(--green-glow);color:var(--green)}
+    .badge.danger{background:var(--red-glow);color:var(--red)}
+    .badge.warning{background:var(--amber-glow);color:var(--amber)}
     .tbl{width:100%;border-collapse:separate;border-spacing:0;margin:1.25rem 0;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
     .tbl th{background:var(--surface2);padding:0.75rem 1rem;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);text-align:left}
     .tbl td{padding:0.75rem 1rem;font-size:0.9rem;border-top:1px solid var(--border);color:var(--text-dim)}
     .tbl tr:hover td{background:var(--surface)}
     .ann{background:var(--surface);border-left:3px solid var(--accent);padding:1rem 1.25rem;border-radius:0 8px 8px 0;margin:1rem 0;font-size:0.92rem}
-    .ann.warn{border-left-color:var(--amber)}.ann.danger{border-left-color:var(--red)}.ann.tip{border-left-color:var(--green)}
+    .ann.warn{border-left-color:var(--amber)}.ann.danger{border-left-color:var(--red)}.ann.tip{border-left-color:var(--green)}.ann.info{border-left-color:var(--accent)}
     .two-col{display:grid;grid-template-columns:1fr 1fr;gap:2rem}
     @media(max-width:768px){.two-col{grid-template-columns:1fr}}
     .pill-list{display:flex;flex-wrap:wrap;gap:8px;margin:0.75rem 0}
@@ -99,28 +115,76 @@ function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string;
     .meter-fill{height:100%;border-radius:16px;transition:width 1s ease}
     .meta-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1.25rem;font-size:0.85rem}
     .stat-val{font-weight:700;color:var(--accent)}
+    .diff-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin:1rem 0;font-size:0.85rem;font-family:'JetBrains Mono',monospace}
+    .diff-file{font-weight:600;color:var(--accent);margin-bottom:0.75rem}
+    .diff-before{color:var(--red);margin:0.5rem 0}
+    .diff-after{color:var(--green);margin:0.5rem 0}
+    .diff-line{display:flex;gap:0.5rem;margin:0.25rem 0}
   </style>
 </head>
 <body>
 
 <nav>
-  <span class="logo">DEEP DIVER</span>
-  <span class="sep">›</span>
-  <span class="pr">PR #${opts.prNumber}</span>
+  <div style="display:flex;align-items:center;gap:0.5rem;min-width:120px">
+    <span class="logo">DEEP DIVER</span>
+    <span class="sep">›</span>
+    <span class="pr">#${opts.prNumber}</span>
+  </div>
   <div class="dots">
-    <div class="dot active" onclick="document.getElementById('s1').scrollIntoView()"></div>
-    <div class="dot" onclick="document.getElementById('s2').scrollIntoView()"></div>
-    <div class="dot" onclick="document.getElementById('s3').scrollIntoView()"></div>
-    <div class="dot" onclick="document.getElementById('s4').scrollIntoView()"></div>
-    <div class="dot" onclick="document.getElementById('s5').scrollIntoView()"></div>
+    ${dots}
   </div>
 </nav>
 
 <div class="deck">
+${allSlides}
+</div>
 
-<!-- SLIDE 1: TITLE -->
+<script>
+  hljs.highlightAll();
+  
+  window.addEventListener('scroll', () => {
+    const slides = document.querySelectorAll('.slide');
+    const dots = document.querySelectorAll('.dot');
+    let current = 0;
+    
+    slides.forEach((slide, index) => {
+      const rect = slide.getBoundingClientRect();
+      if (rect.top <= window.innerHeight / 2 && rect.bottom >= window.innerHeight / 2) {
+        current = index;
+      }
+    });
+    
+    dots.forEach((d, i) => {
+      if (i === current) d.classList.add('active');
+      else d.classList.remove('active');
+    });
+  });
+</script>
+
+</body>
+</html>`;
+}
+
+function generateSlideCount(summary: PRSlideSummary): number {
+  let count = 5; // Base slides (title, overview, files, risks, summary)
+  if (summary.motivation) count++;
+  if (summary.keyDiffs && summary.keyDiffs.length > 0) count += Math.ceil(summary.keyDiffs.length / 2);
+  if (summary.performanceImpact && (summary.performanceImpact.improvements.length > 0 || summary.performanceImpact.degradations.length > 0)) count++;
+  if (summary.securityConsiderations && summary.securityConsiderations.length > 0) count++;
+  if (summary.breakingChanges && summary.breakingChanges.length > 0) count++;
+  if (summary.learningPoints && summary.learningPoints.length > 0) count++;
+  return Math.min(count, 15); // Cap at 15 slides
+}
+
+function generateSlides(summary: PRSlideSummary, opts: { owner: string; repo: string; prNumber: number }): string {
+  let slides = "";
+  let slideNum = 1;
+  const fileCount = summary.fileChanges?.length || 0;
+
+  // SLIDE 1: TITLE
+  slides += `
 <section class="slide" id="s1">
-  <div class="sn">01 / 05</div>
+  <div class="sn">01 / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
   <h1>${escapeHtml(summary.title)}</h1>
   <p class="lead">${escapeHtml(summary.overview)}</p>
   <div class="pill-list" style="margin-top:1.5rem">
@@ -128,36 +192,78 @@ function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string;
   </div>
   <div style="margin-top:2rem;display:flex;gap:1rem;flex-wrap:wrap">
     <div class="meta-box"><span style="color:var(--text-muted)">Repository</span><br><strong>${escapeHtml(opts.owner)}/${escapeHtml(opts.repo)}</strong></div>
-    <div class="meta-box"><span style="color:var(--text-muted)">Files</span><br><strong class="stat-val">${fileCount} files</strong></div>
+    <div class="meta-box"><span style="color:var(--text-muted)">Files</span><br><strong class="stat-val">${fileCount}</strong></div>
     <div class="meta-box"><span style="color:var(--text-muted)">Changes</span><br><strong class="stat-val">${summary.keyChanges?.length || 0}</strong></div>
   </div>
   <div class="sf"><span>↓ Scroll to continue</span><span>Deep Diver · Instant PR Analysis</span></div>
-</section>
+</section>`;
+  slideNum++;
 
-<!-- SLIDE 2: KEY CHANGES -->
-<section class="slide" id="s2">
-  <div class="sn">02 / 05</div>
+  // SLIDE 2: MOTIVATION (if available)
+  if (summary.motivation) {
+    slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
+  <h1>💡 Why This <span class="hl">PR?</span></h1>
+  <p class="lead">${escapeHtml(summary.motivation)}</p>
+  ${summary.whyChanges ? `
+  <h2 style="margin-top:2rem;font-size:1.3rem">Key Reasons</h2>
+  <ul>
+    ${summary.whyChanges.map(w => `<li>${escapeHtml(w)}</li>`).join("")}
+  </ul>` : ""}
+  <div class="sf"><span></span><span>Motivation & Context</span></div>
+</section>`;
+    slideNum++;
+  }
+
+  // SLIDE 3: KEY CHANGES
+  slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
   <h1>🎯 Key <span class="hl">Changes</span></h1>
-  <p class="lead">Here's what this PR accomplishes:</p>
+  <p class="lead">What this PR accomplishes:</p>
   <div class="cg">
     ${(summary.keyChanges || []).map((change, i) => {
-      const colors_map = ['hg', 'hl', 'ha', 'hr', 'hp'];
-      const color = colors_map[i % 5];
+      const icons = ['✨', '🔧', '📦', '🚀', '🔐', '📊', '🔍', '⚡'];
       return `
     <div class="card">
-      <div class="icon">${['✨', '🔧', '📦', '🚀', '🔐'][i % 5]}</div>
+      <div class="icon">${icons[i % icons.length]}</div>
       <p style="color:var(--text);margin:0">${escapeHtml(change)}</p>
     </div>`;
     }).join("")}
   </div>
-  <div class="sf"><span></span><span>Key Impact Areas</span></div>
-</section>
+  <div class="sf"><span></span><span>Core Changes</span></div>
+</section>`;
+  slideNum++;
 
-<!-- SLIDE 3: FILES CHANGED -->
-<section class="slide" id="s3">
-  <div class="sn">03 / 05</div>
+  // SLIDES: CODE DIFFS
+  if (summary.keyDiffs && summary.keyDiffs.length > 0) {
+    const diffsPerSlide = 2;
+    for (let i = 0; i < summary.keyDiffs.length; i += diffsPerSlide) {
+      const diffBatch = summary.keyDiffs.slice(i, i + diffsPerSlide);
+      slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
+  <h1>💻 Code <span class="hl">Diffs</span></h1>
+  ${diffBatch.map((diff, idx) => `
+  <div style="margin-bottom:1.5rem">
+    <h3 style="color:var(--accent);margin-bottom:0.75rem">📄 ${escapeHtml(diff.filePath)}</h3>
+    <p style="font-size:0.95rem;color:var(--text-dim);margin-bottom:0.75rem">${escapeHtml(diff.summary)}</p>
+    <pre><code class="language-diff">${escapeHtml(diff.before || "")}</code></pre>
+    ${diff.after ? `<pre><code class="language-diff">${escapeHtml(diff.after)}</code></pre>` : ""}
+  </div>`).join("")}
+  <div class="sf"><span></span><span>Implementation Details</span></div>
+</section>`;
+      slideNum++;
+    }
+  }
+
+  // SLIDE: FILES CHANGED
+  slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
   <h1>📁 Files <span class="hl">Modified</span></h1>
-  <p class="lead">${fileCount} files changed in this PR:</p>
+  <p class="lead">${fileCount} files changed:</p>
   <table class="tbl">
     <thead>
       <tr>
@@ -170,17 +276,130 @@ function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string;
       ${(summary.fileChanges || []).map(f => `
       <tr>
         <td style="font-family:JetBrains Mono;font-size:0.85rem">${escapeHtml(f.filePath)}</td>
-        <td><span class="badge med">${escapeHtml(f.changeType)}</span></td>
+        <td><span class="badge ${f.changeType === 'added' ? 'success' : f.changeType === 'deleted' ? 'danger' : 'med'}">${escapeHtml(f.changeType)}</span></td>
         <td>${escapeHtml(f.summary)}</td>
       </tr>`).join("")}
     </tbody>
   </table>
-  <div class="sf"><span></span><span>File-by-file breakdown</span></div>
-</section>
+  <div class="sf"><span></span><span>All Modified Files</span></div>
+</section>`;
+  slideNum++;
 
-<!-- SLIDE 4: RISKS & TESTING -->
-<section class="slide" id="s4">
-  <div class="sn">04 / 05</div>
+  // SLIDE: DEPENDENCIES
+  if (summary.dependencies && (summary.dependencies.added.length > 0 || summary.dependencies.removed.length > 0 || summary.dependencies.updated.length > 0)) {
+    slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
+  <h1>📦 <span class="hl">Dependencies</span></h1>
+  <div class="two-col">
+    ${summary.dependencies.added.length > 0 ? `
+    <div>
+      <h3 style="color:var(--green);margin-bottom:1rem">✓ Added</h3>
+      <ul>
+        ${summary.dependencies.added.map(d => `<li style="font-family:JetBrains Mono;font-size:0.9rem">${escapeHtml(d)}</li>`).join("")}
+      </ul>
+    </div>` : ""}
+    ${summary.dependencies.removed.length > 0 ? `
+    <div>
+      <h3 style="color:var(--red);margin-bottom:1rem">✗ Removed</h3>
+      <ul>
+        ${summary.dependencies.removed.map(d => `<li style="font-family:JetBrains Mono;font-size:0.9rem;text-decoration:line-through">${escapeHtml(d)}</li>`).join("")}
+      </ul>
+    </div>` : ""}
+  </div>
+  ${summary.dependencies.updated.length > 0 ? `
+  <div style="margin-top:1.5rem">
+    <h3 style="color:var(--amber);margin-bottom:1rem">↻ Updated</h3>
+    <ul>
+      ${summary.dependencies.updated.map(d => `<li style="font-family:JetBrains Mono;font-size:0.9rem">${escapeHtml(d)}</li>`).join("")}
+    </ul>
+  </div>` : ""}
+  <div class="sf"><span></span><span>Dependencies Changes</span></div>
+</section>`;
+    slideNum++;
+  }
+
+  // SLIDE: PERFORMANCE
+  if (summary.performanceImpact && (summary.performanceImpact.improvements.length > 0 || summary.performanceImpact.degradations.length > 0)) {
+    slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
+  <h1>⚡ Performance <span class="hl">Impact</span></h1>
+  <div class="two-col">
+    <div>
+      <h3 style="color:var(--green);margin-bottom:1rem">🚀 Improvements</h3>
+      ${summary.performanceImpact.improvements.length > 0 ? `
+      <ul>
+        ${summary.performanceImpact.improvements.map(i => `<li>${escapeHtml(i)}</li>`).join("")}
+      </ul>` : `<p style="color:var(--text-muted)">No degradations</p>`}
+    </div>
+    <div>
+      <h3 style="color:var(--amber);margin-bottom:1rem">⚠️ Degradations</h3>
+      ${summary.performanceImpact.degradations.length > 0 ? `
+      <ul>
+        ${summary.performanceImpact.degradations.map(d => `<li>${escapeHtml(d)}</li>`).join("")}
+      </ul>` : `<p style="color:var(--text-muted)">None expected</p>`}
+    </div>
+  </div>
+  <div class="sf"><span></span><span>Performance Analysis</span></div>
+</section>`;
+    slideNum++;
+  }
+
+  // SLIDE: SECURITY
+  if (summary.securityConsiderations && summary.securityConsiderations.length > 0) {
+    slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
+  <h1>🔒 Security <span class="hl">Considerations</span></h1>
+  <ul>
+    ${summary.securityConsiderations.map(s => `<li>${escapeHtml(s)}</li>`).join("")}
+  </ul>
+  <div class="ann warn" style="margin-top:2rem">
+    <strong>⚠️ Note:</strong> Review these security considerations before approving.
+  </div>
+  <div class="sf"><span></span><span>Security Review</span></div>
+</section>`;
+    slideNum++;
+  }
+
+  // SLIDE: BREAKING CHANGES
+  if (summary.breakingChanges && summary.breakingChanges.length > 0) {
+    slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
+  <h1>🚨 Breaking <span class="hr">Changes</span></h1>
+  ${summary.breakingChanges.map(bc => `
+  <div class="ann danger">
+    <strong>⚠️ Breaking Change:</strong> ${escapeHtml(bc)}
+  </div>`).join("")}
+  <div class="sf"><span></span><span>Backward Compatibility</span></div>
+</section>`;
+    slideNum++;
+  }
+
+  // SLIDE: LEARNING POINTS
+  if (summary.learningPoints && summary.learningPoints.length > 0) {
+    slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
+  <h1>📚 Learning <span class="hl">Points</span></h1>
+  <p class="lead">What you can learn from this PR:</p>
+  <ul>
+    ${summary.learningPoints.map(lp => `<li>${escapeHtml(lp)}</li>`).join("")}
+  </ul>
+  <div class="ann tip" style="margin-top:2rem">
+    <strong>💡 Tip:</strong> Read the code diffs carefully to understand the implementation patterns.
+  </div>
+  <div class="sf"><span></span><span>Educational Value</span></div>
+</section>`;
+    slideNum++;
+  }
+
+  // SLIDE: RISKS & TESTING
+  slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
   <h1>⚠️ Risks & <span class="hg">Testing</span></h1>
   <div class="two-col">
     <div>
@@ -198,56 +417,42 @@ function buildHtml(summary: PRSlideSummary, opts: { owner: string; repo: string;
       </div>`).join("")}
     </div>
   </div>
-  <div class="sf"><span></span><span>Risk assessment & validation</span></div>
-</section>
+  <div class="sf"><span></span><span>Risk Assessment</span></div>
+</section>`;
+  slideNum++;
 
-<!-- SLIDE 5: SUMMARY -->
-<section class="slide" id="s5">
-  <div class="sn">05 / 05</div>
+  // FINAL SLIDE: SUMMARY
+  slides += `
+<section class="slide" id="s${slideNum}">
+  <div class="sn">${String(slideNum).padStart(2, '0')} / ${String(generateSlideCount(summary)).padStart(2, '0')}</div>
   <h1>✅ <span class="hg">Summary</span></h1>
-  <p class="lead">This PR is a well-structured change with clear benefits.</p>
-  <div style="margin-top:2rem;display:grid;grid-template-columns:1fr 1fr;gap:2rem">
+  <p class="lead">Complete PR Review</p>
+  <div style="margin-top:2rem;display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-bottom:2rem">
     <div class="card c-green">
-      <h3>✓ Recommendations</h3>
-      <ul style="list-style:none;padding:0">
-        <li style="margin:0.5rem 0">🔍 Review all file changes carefully</li>
-        <li style="margin:0.5rem 0">🧪 Run full test suite locally</li>
-        <li style="margin:0.5rem 0">📋 Verify documentation updates</li>
-        <li style="margin:0.5rem 0">🚀 Ready to merge after approval</li>
+      <h3>✓ What's Good</h3>
+      <ul>
+        <li>Clear motivation and implementation</li>
+        <li>Comprehensive test coverage</li>
+        <li>Well-organized file changes</li>
+        <li>Good documentation</li>
       </ul>
     </div>
     <div class="card c-blue">
       <h3>📊 Quick Stats</h3>
       <div style="margin-top:1rem">
-        <p style="margin:0.25rem 0"><strong>Total Changes:</strong> ${fileCount} files</p>
+        <p style="margin:0.25rem 0"><strong>Total Files:</strong> ${fileCount}</p>
         <p style="margin:0.25rem 0"><strong>Key Changes:</strong> ${summary.keyChanges?.length || 0}</p>
-        <p style="margin:0.25rem 0"><strong>Risks Identified:</strong> ${summary.risks?.length || 0}</p>
-        <p style="margin:0.25rem 0"><strong>Test Coverage:</strong> ${summary.testing?.length || 0} scenarios</p>
+        <p style="margin:0.25rem 0"><strong>Risks:</strong> ${summary.risks?.length || 0}</p>
+        <p style="margin:0.25rem 0"><strong>Tests:</strong> ${summary.testing?.length || 0}</p>
       </div>
     </div>
   </div>
+  ${summary.rollbackPlan ? `
+  <div class="ann info">
+    <strong>🔄 Rollback Plan:</strong> ${escapeHtml(summary.rollbackPlan)}
+  </div>` : ""}
   <div class="sf"><span>Generated by Deep Diver</span><span>End of presentation</span></div>
-</section>
+</section>`;
 
-</div>
-
-<script>
-  // Update active dot on scroll
-  window.addEventListener('scroll', () => {
-    const slides = document.querySelectorAll('.slide');
-    const dots = document.querySelectorAll('.dot');
-    const scrollPosition = window.scrollY + window.innerHeight / 2;
-    
-    slides.forEach((slide, index) => {
-      const rect = slide.getBoundingClientRect();
-      if (rect.top <= window.innerHeight / 2 && rect.bottom >= window.innerHeight / 2) {
-        dots.forEach(d => d.classList.remove('active'));
-        dots[index]?.classList.add('active');
-      }
-    });
-  });
-</script>
-
-</body>
-</html>`;
+  return slides;
 }
