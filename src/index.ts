@@ -5,6 +5,11 @@ import { config } from "./config.js";
 import { handleGitHubWebhook } from "./githubWebhook.js";
 import { manualGenerate } from "./manualGenerate.js";
 import { listPullRequests } from "./githubClient.js";
+import authRouter from "./auth.js";
+import { authMiddleware, adminMiddleware } from "./middleware/auth.js";
+import { rateLimitMiddleware } from "./middleware/rateLimit.js";
+import { apiUsage, auditLogs } from "./auth.js";
+import crypto from "crypto";
 
 const app = express();
 
@@ -14,6 +19,9 @@ app.use(cors({
   credentials: false
 }));
 app.use(express.json());
+
+// Auth routes (no auth required)
+app.use("/auth", authRouter);
 
 // -----------------------------
 // NEW: List PRs for a repo
@@ -47,7 +55,7 @@ app.get("/prs", async (req, res) => {
 });
 
 // NEW: Generate slides for a specific PR (GET endpoint)
-app.get("/generate", async (req, res) => {
+app.get("/generate", authMiddleware, rateLimitMiddleware, async (req, res) => {
   try {
     const { owner, repo, prNumber } = req.query;
     
@@ -95,9 +103,36 @@ app.get("/generate", async (req, res) => {
       Number(prNumber)
     );
 
+    const slidesRemaining = res.locals.slidesRemaining;
+
+    // Track usage
+    if (!apiUsage[req.user!.userId]) {
+      apiUsage[req.user!.userId] = [];
+    }
+    apiUsage[req.user!.userId].push({
+      id: crypto.randomUUID(),
+      userId: req.user!.userId,
+      repoOwner: owner as string,
+      repoName: repo as string,
+      prNumber: Number(prNumber),
+      slidesGenerated: 1,
+      tokensUsed: 0,
+      generatedAt: new Date(),
+    });
+
+    // Log action
+    auditLogs.push({
+      id: crypto.randomUUID(),
+      userId: req.user!.userId,
+      action: "generate_slides",
+      details: `Generated slides for ${owner}/${repo}#${prNumber}`,
+      timestamp: new Date(),
+    });
+
     return res.json({
       message: "Slides generated",
       url: publicUrl,
+      slidesRemaining,
     });
   } catch (err) {
     console.error("GET /generate error:", err);
@@ -106,9 +141,40 @@ app.get("/generate", async (req, res) => {
   }
 });
 
-// Existing routes (POST)
-app.post("/generate", manualGenerate);
+// Existing routes (POST - now with auth)
+app.post("/generate", authMiddleware, rateLimitMiddleware, manualGenerate);
 app.post("/webhook", handleGitHubWebhook);
+
+// Admin analytics endpoint
+app.get("/admin/analytics", authMiddleware, adminMiddleware, async (_req, res) => {
+  const { users } = await import("./auth.js");
+  
+  const totalUsers = Object.keys(users).length;
+  const activeUsers = Object.values(users).filter(
+    (u) => new Date().getTime() - u.lastLogin.getTime() < 7 * 24 * 60 * 60 * 1000
+  ).length;
+  
+  let totalSlides = 0;
+  let totalTokens = 0;
+  Object.values(apiUsage).forEach((usage) => {
+    totalSlides += usage.length;
+    totalTokens += usage.reduce((sum, u) => sum + u.tokensUsed, 0);
+  });
+
+  res.json({
+    stats: {
+      totalUsers,
+      activeUsers,
+      totalSlides,
+      totalTokens,
+      estimatedCost: (totalTokens / 1000) * 0.01,
+    },
+    users: Object.values(users),
+    usage: Object.entries(apiUsage).map(([userId, usage]) => ({ userId, usage })),
+    auditLogs: auditLogs.slice(-100),
+  });
+});
+
 
 app.use(
   "/generated",
