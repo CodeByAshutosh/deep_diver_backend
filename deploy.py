@@ -25,7 +25,16 @@ env_vars = [
     {"name": "OPENROUTER_API_KEY", "value": os.getenv("OPENROUTER_API_KEY")},
     {"name": "LLM_API_KEY", "value": os.getenv("LLM_API_KEY")},
     {"name": "PUBLIC_BASE_URL", "value": os.getenv("PUBLIC_BASE_URL")},
-    {"name": "STORAGE_DIR", "value": os.getenv("STORAGE_DIR", "generated")}
+    {"name": "STORAGE_DIR", "value": os.getenv("STORAGE_DIR", "generated")},
+    {"name": "JWT_SECRET", "value": os.getenv("JWT_SECRET")},
+    {"name": "ADMIN_EMAIL", "value": os.getenv("ADMIN_EMAIL")},
+    {"name": "GITHUB_OAUTH_CLIENT_ID", "value": os.getenv("GITHUB_OAUTH_CLIENT_ID")},
+    {"name": "GITHUB_OAUTH_CLIENT_SECRET", "value": os.getenv("GITHUB_OAUTH_CLIENT_SECRET")},
+    {"name": "GOOGLE_OAUTH_CLIENT_ID", "value": os.getenv("GOOGLE_OAUTH_CLIENT_ID")},
+    {"name": "GOOGLE_OAUTH_CLIENT_SECRET", "value": os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")},
+    {"name": "MICROSOFT_OAUTH_CLIENT_ID", "value": os.getenv("MICROSOFT_OAUTH_CLIENT_ID")},
+    {"name": "MICROSOFT_OAUTH_CLIENT_SECRET", "value": os.getenv("MICROSOFT_OAUTH_CLIENT_SECRET")},
+    {"name": "MICROSOFT_OAUTH_TENANT", "value": os.getenv("MICROSOFT_OAUTH_TENANT", "common")}
 ]
 
 try:

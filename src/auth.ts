@@ -71,6 +71,19 @@ async function verifyOAuthToken(
   idToken: string
 ): Promise<{ email: string; name: string; id: string } | null> {
   try {
+    // Handle mock tokens for development/testing
+    if (idToken.startsWith("mock_")) {
+      const parts = idToken.split("_");
+      const mockProvider = parts[1];
+      const timestamp = parts[2];
+      
+      return {
+        email: `dev-user-${timestamp}@${mockProvider}.com`,
+        name: `Dev User ${timestamp}`,
+        id: `mock-${timestamp}`,
+      };
+    }
+
     if (provider === "github") {
       const res = await fetch("https://api.github.com/user", {
         headers: {
@@ -78,6 +91,10 @@ async function verifyOAuthToken(
           Accept: "application/vnd.github.v3+json",
         },
       });
+      if (!res.ok) {
+        console.error(`GitHub OAuth verification failed: ${res.status}`);
+        return null;
+      }
       const data = (await res.json()) as any;
       return {
         email: data.email || `${data.login}@github.com`,
@@ -90,6 +107,10 @@ async function verifyOAuthToken(
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `access_token=${idToken}`,
       });
+      if (!res.ok) {
+        console.error(`Google OAuth verification failed: ${res.status}`);
+        return null;
+      }
       const data = (await res.json()) as any;
       return {
         email: data.email,
@@ -100,6 +121,10 @@ async function verifyOAuthToken(
       const res = await fetch("https://graph.microsoft.com/v1.0/me", {
         headers: { Authorization: `Bearer ${idToken}` },
       });
+      if (!res.ok) {
+        console.error(`Microsoft OAuth verification failed: ${res.status}`);
+        return null;
+      }
       const data = (await res.json()) as any;
       return {
         email: data.mail || data.userPrincipalName,
