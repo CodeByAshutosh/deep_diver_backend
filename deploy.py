@@ -14,7 +14,7 @@ subscription_id = "4e78cd80-41c7-4f58-b92b-334cde20f39b"
 tenant_id = "2b08247b-be82-4b00-ad96-ca1606b8b51a"
 resource_group = "deep-diver-rg"
 container_app_name = "deep-diver-backend"
-image = "shuklaashu1/deep-diver-backend:v10"
+image = "shuklaashu1/deep-diver-backend:v11"
 
 # Environment variables from .env file
 env_vars = [

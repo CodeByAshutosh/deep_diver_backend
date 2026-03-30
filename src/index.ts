@@ -54,8 +54,8 @@ app.get("/prs", async (req, res) => {
   }
 });
 
-// NEW: Generate slides for a specific PR (GET endpoint)
-app.get("/generate", authMiddleware, rateLimitMiddleware, async (req, res) => {
+// NEW: Generate slides for a specific PR (GET endpoint - PUBLIC, no auth required for guests)
+app.get("/generate", async (req, res) => {
   try {
     const { owner, repo, prNumber } = req.query;
     
@@ -103,41 +103,18 @@ app.get("/generate", authMiddleware, rateLimitMiddleware, async (req, res) => {
       Number(prNumber)
     );
 
-    const slidesRemaining = res.locals.slidesRemaining;
-
-    // Track usage
-    if (!apiUsage[req.user!.userId]) {
-      apiUsage[req.user!.userId] = [];
-    }
-    apiUsage[req.user!.userId].push({
-      id: crypto.randomUUID(),
-      userId: req.user!.userId,
-      repoOwner: owner as string,
-      repoName: repo as string,
-      prNumber: Number(prNumber),
-      slidesGenerated: 1,
-      tokensUsed: 0,
-      generatedAt: new Date(),
-    });
-
-    // Log action
-    auditLogs.push({
-      id: crypto.randomUUID(),
-      userId: req.user!.userId,
-      action: "generate_slides",
-      details: `Generated slides for ${owner}/${repo}#${prNumber}`,
-      timestamp: new Date(),
-    });
-
+    // Return success
     return res.json({
-      message: "Slides generated",
-      url: publicUrl,
-      slidesRemaining,
+      success: true,
+      message: "Slides generated successfully",
+      slidesUrl: publicUrl,
+      owner,
+      repo,
+      prNumber,
     });
   } catch (err) {
     console.error("GET /generate error:", err);
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    return res.status(500).json({ error: "Failed to generate slides", details: errorMsg });
+    return res.status(500).json({ error: "Failed to generate slides" });
   }
 });
 
